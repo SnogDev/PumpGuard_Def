@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PumpGuard - Token Risk Scanner for pump.fun and every chain</title>
+<style>
+:root{--bg:#0a0d0c;--card:#121816;--card2:#0d1311;--line:#1f2a26;--accent:#00ff9d;--text:#eaf2ee;--muted:#8a9a93;--warn:#ffd24a;--bad:#ff5a4d}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#0f2a20,var(--bg) 55%);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;padding:32px 16px}
+main{max-width:720px;margin:0 auto}
+header{display:flex;align-items:center;gap:20px;margin-bottom:26px}
+h1{font-size:2.1rem;margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:4px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+label{display:block;color:var(--muted);font-size:.9rem;margin-bottom:8px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+input,select{flex:1 1 260px;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:1rem}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{padding:13px 22px;border:0;border-radius:10px;background:var(--accent);color:#00150c;font-weight:700;font-size:1rem;cursor:pointer;transition:transform .15s}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.5;cursor:wait}
+#out[hidden]{display:none}
+#out{margin-top:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{font-size:.78rem;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:var(--card2);text-decoration:none}
+.chip.wait{animation:blink 1s infinite}
+.chip.ok{color:var(--accent);border-color:#1c5a41}
+.chip.fail{color:var(--bad);border-color:#5a2a25}
+a.chip{color:var(--text);font-size:.88rem;padding:7px 12px}
+a.chip:hover{border-color:var(--accent);color:var(--accent)}
+.tok{display:flex;gap:14px;align-items:center;margin:6px 0 18px}
+.tok img{width:48px;height:48px;border-radius:12px;background:#1b2521;object-fit:cover}
+.tok strong{font-size:1.2rem}.tok span{color:var(--muted);font-size:.9rem}
+.hero{display:flex;gap:22px;align-items:center;margin-bottom:6px}
+.gauge{position:relative;width:132px;height:132px;flex:none}
+.gauge svg{width:100%;height:100%}
+.trk{fill:none;stroke:#1b2521;stroke-width:10}
+.arc{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;stroke-dasharray:327;stroke-dashoffset:327;transition:stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1),stroke .4s}
+.gauge b{position:absolute;inset:0;display:grid;place-items:center;font-size:2.4rem;font-weight:800}
+.verdict{font-size:1.25rem;font-weight:700}.meta{color:var(--muted);font-size:.88rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:16px 0}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat span{display:block;color:var(--muted);font-size:.78rem}.stat strong{font-size:1.02rem}
+h2{font-size:1rem;margin:24px 0 8px}
+p.n{color:var(--muted);font-size:.85rem;margin:0 0 10px}
+ul{list-style:none;padding:0;margin:0}
+li{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:.93rem;animation:in .4s both;animation-delay:calc(var(--i)*60ms)}
+li b{flex:none;width:10px;height:10px;border-radius:50%;margin-top:7px}
+.bad b{background:var(--bad)}.warn b{background:var(--warn)}.ok b{background:var(--accent)}.info b{background:var(--muted)}
+.pts{margin-left:auto;flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+.hold{display:grid;grid-template-columns:120px 1fr 56px;gap:10px;align-items:center;font-size:.85rem;padding:4px 0}
+.hbar{height:8px;background:#1b2521;border-radius:99px;overflow:hidden}
+.hbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:.92rem;margin:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;word-break:break-all}
+.note{color:var(--muted);font-size:.82rem;margin-top:16px}
+.promo{margin-top:26px;padding:18px 20px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:.88rem}
+.promo a{color:var(--accent)}
+#mascot{--eye:var(--accent);animation:bob 3.2s ease-in-out infinite;flex:none}
+#mascot .eye{fill:var(--eye);transition:fill .4s}
+#mascot[data-mood=warn]{--eye:var(--warn)}#mascot[data-mood=bad]{--eye:var(--bad)}
+#mascot[data-mood=scan] .shield{animation:pulse .9s infinite}
+.mc{width:100%;height:auto;display:block;margin:6px 0 12px}
+.mc .ln{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.4s ease-out forwards}
+.mc .area{fill:var(--accent);opacity:0;animation:fade 1s .9s forwards}
+.mc .pk{fill:var(--warn)}
+.coin{border-top:1px solid var(--line);padding:10px 0}
+.crow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.92rem}
+.crow .m{color:var(--muted);font-size:.82rem}.crow .sp{margin-left:auto}
+.mini{padding:5px 12px;font-size:.8rem;background:transparent;color:var(--accent);border:1px solid #1c5a41}
+.hist:not(:empty){margin-top:10px}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fade{to{opacity:.12}}
+@keyframes bob{50%{transform:translateY(-4px)}}
+@keyframes pulse{50%{stroke-width:6;filter:drop-shadow(0 0 8px #00ff9d)}}
+@keyframes blink{50%{opacity:.4}}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(max-width:520px){.hero{flex-direction:column;align-items:flex-start}.kv{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<svg id="mascot" data-mood="idle" width="84" height="92" viewBox="0 0 120 130" role="img" aria-label="PumpGuard mascot: a guard dog in front of a shield">
+<path class="shield" d="M60 6 108 24v38c0 32-22 52-48 62C34 114 12 94 12 62V24Z" fill="#0f2a20" stroke="#00ff9d" stroke-width="3"/>
+<path d="M30 38 22 64l20-4Z" fill="#00ff9d"/><path d="M90 38l8 26-20-4Z" fill="#00ff9d"/>
+<ellipse cx="60" cy="68" rx="27" ry="25" fill="#d8f5e8"/>
+<path d="M36 58h48v10c-6 4-14 3-18 0h-12c-4 3-12 4-18 0Z" fill="#0a0d0c"/>
+<circle class="eye" cx="50" cy="63" r="3"/><circle class="eye" cx="70" cy="63" r="3"/>
+<ellipse cx="60" cy="78" rx="7" ry="5" fill="#0a0d0c"/>
+<path d="M53 86q7 6 14 0" stroke="#0a0d0c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>
+<div><h1>PumpGuard</h1><p class="sub">Risk scanner for pump.fun, Solana, Ethereum, Base, BNB Chain and every other chain DexScreener tracks. Live on-chain data, creator profile, every point explained.</p></div>
+</header>
+
+<section class="card">
+<label for="mint">Token address</label>
+<div class="row">
+<input id="mint" type="text" placeholder="Paste a token address from any chain" autocomplete="off" spellcheck="false">
+<select id="chain" aria-label="Blockchain" style="flex:0 1 190px"><option value="auto">Auto-detect chain</option><option value="solana">Solana</option></select>
+<button id="go">Scan token</button>
+</div>
+
+<div id="out" hidden aria-live="polite">
+<div class="chips" id="status"></div>
+<div id="body"></div>
+</div>
+</section>
+
+<aside class="promo">$PG is the community token behind this tool. It is not part of the scan and never changes a score. Not financial advice. <a href="https://pump.fun" target="_blank" rel="noopener">View $PG on pump.fun</a></aside>
+</main>
+
+<script>
+/* RugCheck base URL. If your browser blocks it (red "blocked by the browser" chip), point this at your own proxy. */
+const RC = "https://api.rugcheck.xyz/v1";
+/* Optional: your own Solana RPC URL (free Helius/QuickNode key). Public RPCs are tried as a fallback. */
+const RPC_URL = "";
+const RPCS = [RPC_URL, "https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"].filter(Boolean);
+
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const fmt = n => n == null || isNaN(n) ? "n/a" : n >= 1e9 ? (n/1e9).toFixed(1)+"B" : n >= 1e6 ? (n/1e6).toFixed(1)+"M" : n >= 1e3 ? (n/1e3).toFixed(1)+"k" : Math.round(n)+"";
+const short = a => a ? a.slice(0, 4) + "..." + a.slice(-4) : "";
+const safe = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch (e) { return null; } };
+const mood = m => $("mascot").dataset.mood = m;
+
+async function once(url, opt, ms = 9000) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, Object.assign({}, opt, { signal: c.signal }));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("timed out");
+    if (e.name === "TypeError") throw new Error("blocked by the browser (CORS) or offline");
+    throw e;
+  } finally { clearTimeout(t); }
+}
+/* If the browser blocks a direct request (CORS), retry GET requests through public relays. */
+const PROXIES = [u => "https://corsproxy.io/?url=" + encodeURIComponent(u), u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u)];
+let proxied = false;
+async function tj(url, opt, ms = 9000) {
+  try { return await once(url, opt, ms); }
+  catch (e) {
+    if (!/blocked by the browser/.test(e.message) || (opt && opt.method === "POST")) throw e;
+    for (const px of PROXIES) { try { const j = await once(px(url), opt, ms); proxied = true; return j; } catch (_) {} }
+    throw e;
+  }
+}
+function track(name, fn) {
+  const chip = el("span", "chip wait", name); $("status").append(chip);
+  return fn().then(v => { chip.className = "chip ok"; return v; },
+    e => { chip.className = "chip fail"; chip.textContent = name + ": " + e.message; return null; });
+}
+async function rpc(method, params) {
+  let last;
+  for (const u of RPCS) {
+    try {
+      const j = await tj(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }, 7000);
+      if (j.result !== undefined) return j.result;
+      last = new Error((j.error && j.error.message) || "RPC error");
+    } catch (e) { last = e; }
+  }
+  throw last || new Error("no RPC reachable");
+}
+async function creatorInfo(addr) {
+  const [sigs, bal] = await Promise.all([rpc("getSignaturesForAddress", [addr, { limit: 1000 }]), rpc("getBalance", [addr])]);
+  const times = sigs.map(s => s.blockTime).filter(Boolean);
+  return { count: sigs.length, capped: sigs.length >= 1000, ageDays: times.length ? (Date.now() / 1000 - Math.min(...times)) / 86400 : 0, sol: (bal.value != null ? bal.value : bal) / 1e9 };
+}
+/* Direct on-chain read for tokens RugCheck has not indexed yet (the first minutes, when most rugs happen). */
+const PUMP = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+async function onchain(mint) {
+  const acc = await rpc("getAccountInfo", [mint, { encoding: "jsonParsed" }]);
+  const mi = acc && acc.value && acc.value.data && acc.value.data.parsed && acc.value.data.parsed.info;
+  if (!mi) throw new Error("mint account not found");
+  const supply = +mi.supply, dec = mi.decimals;
+  const lg = await rpc("getTokenLargestAccounts", [mint]);
+  const top = (lg.value || []).slice(0, 10);
+  const tas = top.length ? await rpc("getMultipleAccounts", [top.map(t => t.address), { encoding: "jsonParsed" }]) : { value: [] };
+  const owners = tas.value.map(a => a && a.data && a.data.parsed && a.data.parsed.info && a.data.parsed.info.owner);
+  const uniq = [...new Set(owners.filter(Boolean))];
+  const oa = uniq.length ? await rpc("getMultipleAccounts", [uniq, { encoding: "base64", dataSlice: { offset: 0, length: 0 } }]) : { value: [] };
+  const prog = {}; uniq.forEach((o, i) => { prog[o] = oa.value[i] && oa.value[i].owner; });
+  let creator = null, createdAt = null;
+  try {
+    const sigs = await rpc("getSignaturesForAddress", [mint, { limit: 1000 }]);
+    if (sigs.length && sigs.length < 1000) {
+      const first = sigs[sigs.length - 1]; createdAt = first.blockTime;
+      const tx = await rpc("getTransaction", [first.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]);
+      const k = tx.transaction.message.accountKeys[0]; creator = k.pubkey || k;
+    }
+  } catch (e) {}
+  const known = {}, holders = top.map((t, i) => {
+    const o = owners[i] || t.address, pct = supply ? (+t.amount / supply) * 100 : 0;
+    if (prog[o] === PUMP) known[o] = { name: "Bonding curve" };
+    return { address: t.address, owner: o, pct, curve: prog[o] === PUMP };
+  });
+  const real = holders.filter(h => !h.curve), risks = [];
+  const top1 = real.length ? Math.max(...real.map(h => h.pct)) : 0, top10 = real.reduce((a, h) => a + h.pct, 0);
+  if (top1 > 20) risks.push({ name: "Single holder owns " + top1.toFixed(1) + "% of supply", level: "danger", description: "excluding the bonding curve" });
+  else if (top1 > 10) risks.push({ name: "Largest holder owns " + top1.toFixed(1) + "% of supply", level: "warn", description: "excluding the bonding curve" });
+  if (top10 > 50) risks.push({ name: "Top wallets own " + top10.toFixed(1) + "% of supply", level: "warn", description: "excluding the bonding curve" });
+  const cr = creator && real.find(h => h.owner === creator);
+  if (cr && cr.pct > 5) risks.push({ name: "Creator holds " + cr.pct.toFixed(1) + "% of supply", level: cr.pct > 20 ? "danger" : "warn", description: "" });
+  return { _onchain: true, mintAuthority: mi.mintAuthority, freezeAuthority: mi.freezeAuthority, creator, createdAt, risks, topHolders: holders, knownAccounts: known, token: { supply, decimals: dec }, creatorBalance: cr ? Math.round(cr.pct / 100 * supply) : null };
+}
+function countUp(node, to) {
+  if (reduce) { node.textContent = to; return; }
+  const t0 = performance.now();
+  const step = t => { const k = Math.min((t - t0) / 1000, 1); node.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+const section = (title, note) => { const f = document.createDocumentFragment(); f.append(el("h2", "", title)); if (note) f.append(el("p", "n", note)); return f; };
+const chipLink = (label, href) => { const a = el("a", "chip", label); a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer"; return a; };
+
+const dur = s => s < 3600 ? Math.round(s / 60) + " min" : s < 172800 ? (s / 3600).toFixed(1) + " h" : (s / 86400).toFixed(1) + " days";
+const DX = "https://api.dexscreener.com/latest/dex/tokens/";
+const GT = "https://api.geckoterminal.com/api/v2/networks/";
+
+/* Chains outside Solana. id is DexScreener's chain id, gt GeckoTerminal's network id, gp GoPlus's chain id
+   (contract security checks), ex the explorer, rpc a public RPC for the creator wallet, gm/hp GMGN and honeypot.is slugs.
+   Any other chain DexScreener reports still scans with market data only. */
+const explorer = (n, u) => ({ ex: n, tok: u + "/token/", acc: u + "/address/" });
+const CHAINS = [
+  { id: "ethereum", name: "Ethereum", gp: "1", gt: "eth", sym: "ETH", rpc: "https://ethereum-rpc.publicnode.com", gm: "eth", hp: "ethereum", ...explorer("Etherscan", "https://etherscan.io") },
+  { id: "bsc", name: "BNB Chain", gp: "56", gt: "bsc", sym: "BNB", rpc: "https://bsc-rpc.publicnode.com", gm: "bsc", hp: "bsc", ...explorer("BscScan", "https://bscscan.com") },
+  { id: "base", name: "Base", gp: "8453", gt: "base", sym: "ETH", rpc: "https://base-rpc.publicnode.com", gm: "base", hp: "base", ...explorer("BaseScan", "https://basescan.org") },
+  { id: "arbitrum", name: "Arbitrum", gp: "42161", gt: "arbitrum", sym: "ETH", rpc: "https://arbitrum-one-rpc.publicnode.com", ...explorer("Arbiscan", "https://arbiscan.io") },
+  { id: "polygon", name: "Polygon", gp: "137", gt: "polygon_pos", sym: "POL", rpc: "https://polygon-bor-rpc.publicnode.com", ...explorer("PolygonScan", "https://polygonscan.com") },
+  { id: "optimism", name: "Optimism", gp: "10", gt: "optimism", sym: "ETH", rpc: "https://optimism-rpc.publicnode.com", ...explorer("Optimism Etherscan", "https://optimistic.etherscan.io") },
+  { id: "avalanche", name: "Avalanche", gp: "43114", gt: "avax", sym: "AVAX", rpc: "https://avalanche-c-chain-rpc.publicnode.com", ...explorer("Snowtrace", "https://snowtrace.io") },
+  { id: "sonic", name: "Sonic", gp: "146", gt: "sonic", sym: "S", ...explorer("SonicScan", "https://sonicscan.org") },
+  { id: "blast", name: "Blast", gp: "81457", gt: "blast", sym: "ETH", ...explorer("BlastScan", "https://blastscan.io") },
+  { id: "linea", name: "Linea", gp: "59144", gt: "linea", sym: "ETH", ...explorer("LineaScan", "https://lineascan.build") },
+  { id: "zksync", name: "zkSync Era", gp: "324", gt: "zksync", sym: "ETH", ...explorer("zkSync Explorer", "https://era.zksync.network") },
+  { id: "scroll", name: "Scroll", gp: "534352", gt: "scroll", sym: "ETH", ...explorer("ScrollScan", "https://scrollscan.com") },
+  { id: "mantle", name: "Mantle", gp: "5000", gt: "mantle", sym: "MNT", ...explorer("MantleScan", "https://mantlescan.xyz") },
+  { id: "cronos", name: "Cronos", gp: "25", gt: "cro", sym: "CRO", ...explorer("CronoScan", "https://cronoscan.com") },
+  { id: "fantom", name: "Fantom", gp: "250", gt: "ftm", sym: "FTM", ...explorer("FTMScan", "https://ftmscan.com") },
+  { id: "opbnb", name: "opBNB", gp: "204", gt: "opbnb", sym: "BNB", ...explorer("opBNBScan", "https://opbnb.bscscan.com") },
+  { id: "berachain", name: "Berachain", gp: "80094", gt: "berachain", sym: "BERA", ...explorer("Berascan", "https://berascan.com") },
+  { id: "unichain", name: "Unichain", gp: "130", gt: "unichain", sym: "ETH", ...explorer("Uniscan", "https://uniscan.xyz") },
+  { id: "abstract", name: "Abstract", gp: "2741", gt: "abstract", sym: "ETH", ...explorer("Abscan", "https://abscan.org") },
+  { id: "tron", name: "Tron", gp: "tron", gt: "tron", sym: "TRX", gm: "tron", ex: "Tronscan", tok: "https://tronscan.org/#/token20/", acc: "https://tronscan.org/#/address/" },
+  { id: "sui", name: "Sui", gt: "sui-network", sym: "SUI", ex: "Suiscan", tok: "https://suiscan.xyz/mainnet/coin/", acc: "https://suiscan.xyz/mainnet/account/" },
+  { id: "ton", name: "TON", gt: "ton", sym: "TON", ex: "Tonviewer", tok: "https://tonviewer.com/", acc: "https://tonviewer.com/" },
+  { id: "aptos", name: "Aptos", gt: "aptos", sym: "APT" },
+  { id: "hyperevm", name: "HyperEVM", gt: "hyperevm", sym: "HYPE" }
+];
+const CH = Object.fromEntries(CHAINS.map(c => [c.id, c]));
+CH.solana = { id: "solana", name: "Solana", gt: "solana" };
+const chainOf = id => CH[id] || { id, name: id ? id[0].toUpperCase() + id.slice(1) : "Unknown chain", gt: id };
+const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, EVM_RE = /^0x[0-9a-fA-F]{40}$/, TRON_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+const same = (a, b) => String(a || "").toLowerCase() === String(b || "").toLowerCase();
+/* Highest-liquidity pair on the chain, preferring pairs where the token is the base side. */
+function bestPair(dx, chain, addr) {
+  const all = ((dx && dx.pairs) || []).filter(p => !chain || p.chainId === chain);
+  const base = all.filter(p => p.baseToken && same(p.baseToken.address, addr));
+  return (base.length ? base : all).sort((a, b) => ((b.liquidity || {}).usd || 0) - ((a.liquidity || {}).usd || 0))[0] || null;
+}
+async function goplus(id, a) {
+  const j = await tj("https://api.gopluslabs.io/api/v1/token_security/" + id + "?contract_addresses=" + a);
+  const res = (j && j.result) || {};
+  const r = res[a.toLowerCase()] || res[a] || Object.values(res)[0];
+  if (!r || !Object.keys(r).length) throw new Error(j && j.code !== 1 && j.message ? j.message : "no report for this token yet");
+  return r;
+}
+async function evmWallet(url, addr) {
+  const call = async (method, params) => {
+    const j = await tj(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }, 7000);
+    if (j.result === undefined) throw new Error((j.error && j.error.message) || "RPC error");
+    return j.result;
+  };
+  const [n, b] = await Promise.all([call("eth_getTransactionCount", [addr, "latest"]), call("eth_getBalance", [addr, "latest"])]);
+  return { count: parseInt(n, 16), bal: Number(BigInt(b)) / 1e18 };
+}
+
+async function ohlcv(pair) {
+  if (!pair || !pair.pairAddress) throw new Error("no DEX pair found");
+  const age = (Date.now() - (pair.pairCreatedAt || Date.now())) / 36e5;
+  const c = age < 3 ? ["minute", 1, 200] : age < 48 ? ["minute", 15, 200] : age < 480 ? ["hour", 1, 500] : ["day", 1, 365];
+  const net = chainOf(pair.chainId).gt;
+  if (!net) throw new Error("no price history source for this chain");
+  const j = await tj(GT + net + "/pools/" + pair.pairAddress + "/ohlcv/" + c[0] + "?aggregate=" + c[1] + "&limit=" + c[2] + "&currency=usd");
+  const list = ((j.data && j.data.attributes && j.data.attributes.ohlcv_list) || []).slice().reverse();
+  if (list.length < 2) throw new Error("no price history yet");
+  return list;
+}
+function analyze(list, pair) {
+  const supply = +pair.priceUsd > 0 && pair.fdv ? pair.fdv / pair.priceUsd : 1e9;
+  let pk = 0; list.forEach((c, i) => { if (c[2] > list[pk][2]) pk = i; });
+  const peak = list[pk][2], first = list[0][0], last = list[list.length - 1];
+  let dead = -1; for (let i = pk + 1; i < list.length; i++) { if (list[i][4] <= peak * 0.1) { dead = i; break; } }
+  return { list, pk, athMc: peak * supply, peakAfter: list[pk][0] - first, lasted: dead >= 0 ? list[dead][0] - first : null, fromPeak: (1 - last[4] / peak) * 100, span: last[0] - first };
+}
+function histPanel(a, compact) {
+  const W = 600, H = 140, P = 6, n = a.list.length, max = a.list[a.pk][2];
+  const x = i => P + i * (W - 2 * P) / Math.max(n - 1, 1), y = v => H - P - (v / max) * (H - 2 * P);
+  const pts = a.list.map((c, i) => x(i).toFixed(1) + "," + y(c[4]).toFixed(1)).join(" ");
+  const w = el("div"), s = el("div");
+  s.innerHTML = '<svg class="mc" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Price chart"><polygon class="area" points="' + x(0).toFixed(1) + "," + (H - P) + " " + pts + " " + x(n - 1).toFixed(1) + "," + (H - P) + '"/><polyline class="ln" pathLength="1" points="' + pts + '"/><circle class="pk" cx="' + x(a.pk).toFixed(1) + '" cy="' + y(max).toFixed(1) + '" r="4"/></svg>';
+  const kv = el("dl", "kv"); const row = (k, v) => kv.append(el("dt", "", k), el("dd", "", v));
+  row("Peak market cap", "$" + fmt(a.athMc));
+  row("Peak reached", dur(a.peakAfter) + " after the first candle");
+  row("Lasted", a.lasted != null ? "fell 90% from the peak after " + dur(a.lasted) : "still trading, " + Math.max(a.fromPeak, 0).toFixed(0) + "% below its peak");
+  if (!compact) row("History loaded", dur(a.span));
+  w.append(s, kv);
+  if (!compact) w.append(el("p", "n", "Peak is the highest price in the loaded window, so very old coins may have peaked earlier."));
+  return w;
+}
+/* Launchpad-agnostic scan: any token the creator minted shows up as an initializeMint call in their own transactions,
+   whatever launchpad was used. Known launchpad programs only supply the label. */
+const PADS = [["LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj", "Raydium LaunchLab"], ["dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN", "Meteora DBC"],
+  ["MoonCVVNZFSYkqNXP6bxHLPL6QQJiMagDL3qcqUQTrG", "Moonshot"], ["boop8hVGQGqehUK2iVEMEnMrL5RbjywRzHKBmBE7ry4", "Boop"], [PUMP, "Pump.fun"]];
+const BONK_CFG = "FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1";
+function padOf(keys) {
+  const hit = PADS.find(p => keys.has(p[0]));
+  if (!hit) return "Direct mint";
+  if (hit[1] === "Raydium LaunchLab" && keys.has(BONK_CFG)) return "Bonk (LetsBonk.fun)";
+  if (hit[1] === "Meteora DBC") return "Meteora DBC (Believe, Jupiter Studio)";
+  return hit[1];
+}
+async function creatorCoinsChain(addr) {
+  const sigs = await rpc("getSignaturesForAddress", [addr, { limit: 40 }]);
+  const found = new Map();
+  for (let i = 0; i < sigs.length; i += 8) {
+    const batch = sigs.slice(i, i + 8);
+    const txs = await Promise.all(batch.map(x => rpc("getTransaction", [x.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }]).catch(() => null)));
+    txs.forEach((tx, j) => {
+      if (!tx || !tx.transaction) return;
+      const msg = tx.transaction.message, keys = new Set((msg.accountKeys || []).map(k => k.pubkey || k));
+      const payer = msg.accountKeys && (msg.accountKeys[0].pubkey || msg.accountKeys[0]);
+      if (payer !== addr) return;
+      const ixs = (msg.instructions || []).concat(((tx.meta && tx.meta.innerInstructions) || []).flatMap(n => n.instructions || []));
+      ixs.forEach(ix => { if (ix.programId) keys.add(ix.programId); });
+      ixs.forEach(ix => {
+        const m = ix.parsed && /^initializeMint2?$/.test(ix.parsed.type) && ix.parsed.info && ix.parsed.info.mint;
+        if (m && !found.has(m)) found.set(m, { mint: m, ts: (batch[j].blockTime || 0) * 1000, pad: padOf(keys) });
+      });
+    });
+  }
+  const list = [...found.values()];
+  for (let i = 0; i < list.length; i += 30) {
+    try {
+      const j = await tj(DX + list.slice(i, i + 30).map(c => c.mint).join(","));
+      (j.pairs || []).forEach(pr => { const c = list.find(x => x.mint === pr.baseToken.address); if (c && !c.name) { c.name = pr.baseToken.name; c.symbol = pr.baseToken.symbol; c.mc = +(pr.marketCap || pr.fdv) || null; c.done = /^(raydium|pumpswap|meteora|orca)$/.test(pr.dexId); if (!c.ts && pr.pairCreatedAt) c.ts = pr.pairCreatedAt; } });
+    } catch (e) {}
+  }
+  return list.map(c => ({ name: null, symbol: null, mc: null, done: false, ...c })).sort((x, y) => y.ts - x.ts);
+}
+/* Both sources run together and are merged: pump.fun's API gives names and market caps, the chain scan covers every other launchpad. */
+async function creatorCoins(addr, rc) {
+  const [a, b] = await Promise.allSettled([creatorCoinsApi(addr, rc), creatorCoinsChain(addr)]);
+  const A = a.status === "fulfilled" ? a.value : [], B = b.status === "fulfilled" ? b.value : [];
+  if (a.status === "rejected" && !B.length) throw a.reason;
+  const map = new Map();
+  A.forEach(c => map.set(c.mint, Object.assign({ pad: "Pump.fun" }, c)));
+  B.forEach(c => { const o = map.get(c.mint); if (o) { if (!o.pad || o.pad === "Pump.fun") o.pad = c.pad === "Direct mint" ? o.pad : c.pad; } else map.set(c.mint, c); });
+  return [...map.values()].sort((x, y) => y.ts - x.ts);
+}
+async function creatorCoinsApi(addr, rc) {
+  const urls = ["https://frontend-api-v3.pump.fun/coins/user-created-coins/" + addr + "?offset=0&limit=50&includeNsfw=true",
+    "https://frontend-api-v3.pump.fun/coins/search?searchTerm=&creator=" + addr + "&sort=created_timestamp&order=DESC&limit=50&offset=0&includeNsfw=true"];
+  let last, list = null;
+  for (const u of urls) {
+    try { const j = await tj(u); const a = Array.isArray(j) ? j : (j.data || j.coins || []); if (Array.isArray(a)) { list = a; if (a.length) break; } } catch (e) { last = e; }
+  }
+  if (!list && rc && Array.isArray(rc.creatorTokens)) list = rc.creatorTokens.map(t => ({ mint: t.mint, name: t.name, symbol: t.symbol, created_timestamp: t.createdAt || t.created_at, usd_market_cap: t.marketCap }));
+  if (!list) throw last || new Error("no data");
+  return list.filter(c => c && c.mint).map(c => {
+    let ts = (+c.created_timestamp) || Date.parse(c.created_timestamp) || 0; if (ts && ts < 1e12) ts *= 1000;
+    return { mint: c.mint, name: c.name, symbol: c.symbol, ts, mc: c.usd_market_cap != null ? +c.usd_market_cap : null, done: !!c.complete };
+  }).sort((a, b) => b.ts - a.ts);
+}
+function coinRow(c) {
+  const d = el("div", "coin"), top = el("div", "crow"), out = el("div", "hist");
+  const state = c.done ? "Graduated" : c.mc != null && c.mc < 5000 ? "Low or dead" : "Live";
+  top.append(el("strong", "", (c.name || short(c.mint)) + (c.symbol ? " (" + c.symbol + ")" : "")),
+    el("span", "m", (c.ts ? dur((Date.now() - c.ts) / 1000) + " ago" : "") + "  ·  now " + (c.mc != null ? "$" + fmt(c.mc) : "n/a") + "  ·  " + state + (c.pad ? "  ·  " + c.pad : "")));
+  const sp = el("span", "sp"); const btn = el("button", "mini", "Peak and lifespan"); sp.append(btn); top.append(sp);
+  const load = async () => {
+    btn.disabled = true; btn.textContent = "Loading...";
+    try {
+      const j = await tj(DX + c.mint);
+      const pr = bestPair(j, "solana", c.mint);
+      out.replaceChildren(histPanel(analyze(await ohlcv(pr), pr), true)); btn.remove();
+    } catch (e) { btn.disabled = false; btn.textContent = "Retry"; out.textContent = "No price history for this coin: " + e.message; }
+  };
+  btn.onclick = load;
+  d.append(top, out); d.load = load; return d;
+}
+
+/* Works out which chain an address belongs to. Solana addresses are recognised by format; everything else is looked up
+   on DexScreener (which indexes every chain), then probed on GoPlus for brand-new tokens with no DEX pair yet. */
+const PROBE = ["ethereum", "bsc", "base", "arbitrum", "polygon"];
+async function detect(a, pick) {
+  if (pick === "solana") return SOL_RE.test(a) ? { chain: "solana" } : { msg: "That is not a valid Solana address. Copy the mint address from the token page and paste it again." };
+  if (pick !== "auto") {
+    if (CH[pick].gp && CH[pick].gp !== "tron" && !EVM_RE.test(a)) return { msg: CH[pick].name + " token addresses start with 0x and are 42 characters long. Check the address and try again." };
+    return { chain: pick };
+  }
+  if (SOL_RE.test(a) && !TRON_RE.test(a)) return { chain: "solana" };
+  const dx = await track("Chain detection", () => tj(DX + a));
+  const best = bestPair(dx, null, a);
+  if (best) return { chain: best.chainId, dx };
+  if (TRON_RE.test(a)) return (await track("Tron check", () => goplus("tron", a)).then(gp => gp && { chain: "tron", dx, gp })) || { chain: "solana", dx };
+  if (EVM_RE.test(a)) {
+    const hit = await track("Contract lookup", () => Promise.any(PROBE.map(id => goplus(CH[id].gp, a).then(gp => { if (!gp.token_name && !gp.total_supply) throw new Error("empty"); return { chain: id, dx, gp }; })))
+      .catch(() => { throw new Error("not found on " + PROBE.map(id => CH[id].name).join(", ")); }));
+    if (hit) return hit;
+    return { msg: "This contract was not found on any DEX or on the main EVM chains. Pick its chain from the menu and scan again." };
+  }
+  return { msg: "No token with this address was found on any chain DexScreener tracks. Check the address, or pick its chain from the menu and scan again." };
+}
+
+async function scan() {
+  const addr = $("mint").value.trim(), pick = $("chain").value;
+  const body = $("body"); body.innerHTML = ""; $("status").innerHTML = ""; $("out").hidden = false;
+  if (!/^[\w:.-]{20,200}$/.test(addr)) { body.append(el("p", "n", "That does not look like a token address. Copy the address from the token page and paste it again.")); return; }
+  $("go").disabled = true; mood("scan"); proxied = false;
+  try {
+    const d = await detect(addr, pick);
+    if (!d.chain) { body.append(el("p", "n", d.msg)); mood("idle"); return; }
+    if (d.chain === "solana") await scanSolana(addr, d.dx); else await scanChain(addr, d.chain, d.dx, d.gp);
+  } finally { $("go").disabled = false; }
+}
+
+/* ---- pieces shared by every chain ---- */
+function collectLinks(pair, g, meta) {
+  const project = [], seen = new Set();
+  const addL = (label, u) => { const s = safe(u); if (s && !seen.has(s)) { seen.add(s); project.push([label, s]); } };
+  const xurl = v => /^https?:/.test(v) ? v : "https://x.com/" + String(v).replace(/^@/, "");
+  const info = (pair && pair.info) || {};
+  (info.websites || []).forEach(w => addL(w.label || "Website", w.url));
+  (info.socials || []).forEach(s => addL(s.type ? s.type[0].toUpperCase() + s.type.slice(1) : "Link", s.url));
+  (g.websites || []).forEach(u => addL("Website", u));
+  if (g.twitter_handle) addL("X", xurl(g.twitter_handle));
+  if (g.telegram_handle) addL("Telegram", "https://t.me/" + g.telegram_handle);
+  if (g.discord_url) addL("Discord", g.discord_url);
+  if (meta) { if (meta.website) addL("Website", meta.website); if (meta.twitter) addL("X", xurl(meta.twitter)); if (meta.telegram) addL("Telegram", meta.telegram); }
+  return { project, xLink: (project.find(p => /x\.com|twitter\.com/.test(p[1])) || [])[1] };
+}
+/* Market, price-history and link checks. Returns the score change. */
+function marketChecks(pair, hist, project, add, noPair) {
+  let d = 0;
+  if (pair) {
+    const liq = (pair.liquidity || {}).usd || 0;
+    if (liq < 5000) { d -= 8; add("warn", "Low liquidity ($" + fmt(liq) + "): one sale can move the price sharply.", -8); }
+    else if (liq > 50000) { d += 3; add("ok", "Healthy liquidity ($" + fmt(liq) + ").", 3); }
+    const ch = (pair.priceChange || {}).h24;
+    if (ch > 500) { d -= 6; add("warn", "Price is up " + Math.round(ch) + "% in 24h. Hype like this often comes before a dump.", -6); }
+    const tx = (pair.txns || {}).h24 || {};
+    if ((tx.sells || 0) > (tx.buys || 0) * 1.5 && tx.sells > 20) { d -= 4; add("warn", "Sellers outnumber buyers in the last 24h (" + tx.sells + " sells vs " + tx.buys + " buys).", -4); }
+  } else add("info", noPair);
+  if (hist) {
+    if (hist.fromPeak > 90) { d -= 8; add("warn", "Price is " + hist.fromPeak.toFixed(0) + "% below its peak. The run is mostly over.", -8); }
+    else add("info", "Peak market cap was $" + fmt(hist.athMc) + "; price is now " + Math.max(hist.fromPeak, 0).toFixed(0) + "% below that peak.");
+  }
+  const hasX = project.some(p => /x\.com|twitter\.com/.test(p[1])), hasWeb = project.some(p => !/x\.com|twitter\.com|t\.me|discord/.test(p[1]));
+  if (hasWeb) { d += 2; add("info", "A website is listed. Presence only: sites are cheap to fake.", 2); }
+  if (hasX) { d += 2; add("info", "An X account is listed. Presence only: followers and engagement can be bought.", 2); }
+  if (!project.length) add("info", "No website or social links found for this token.");
+  return d;
+}
+/* Token header, score gauge, stats, price chart and findings list. */
+function renderTop(body, o) {
+  const cls = o.score >= 70 ? "ok" : o.score >= 40 ? "warn" : "bad";
+  const col = cls === "ok" ? "var(--accent)" : cls === "warn" ? "var(--warn)" : "var(--bad)";
+  const head = el("div", "tok");
+  if (o.img) { const i = el("img"); i.src = o.img; i.alt = ""; i.referrerPolicy = "no-referrer"; i.onerror = () => i.remove(); head.append(i); }
+  const hd = el("div"); hd.append(el("strong", "", o.name), el("span", "", " " + o.sym + (o.price ? "  ·  $" + Number(o.price).toPrecision(3) : "") + "  ·  " + o.chain));
+  head.append(hd); body.append(head);
+
+  const hero = el("div", "hero");
+  const gauge = el("div", "gauge");
+  gauge.innerHTML = '<svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="arc" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"/></svg>';
+  const num = el("b", "", o.scored ? "0" : "--"); gauge.append(num);
+  const v = el("div"); v.append(el("div", "verdict", !o.scored ? o.noScore : cls === "ok" ? "Fewer red flags" : cls === "warn" ? "Mixed signals" : "High risk"),
+    el("div", "meta", o.scored ? "Higher means fewer red flags found. Never a guarantee." : o.noScoreMeta));
+  hero.append(gauge, v); body.append(hero);
+  if (o.scored) {
+    const arc = gauge.querySelector(".arc"); arc.style.stroke = col; num.style.color = col;
+    requestAnimationFrame(() => requestAnimationFrame(() => { arc.style.strokeDashoffset = 327 * (1 - o.score / 100); }));
+    countUp(num, o.score); mood(cls);
+  } else mood("bad");
+
+  const sg = el("div", "stats");
+  o.stats.forEach(s => { const d = el("div", "stat"); d.append(el("span", "", s[0]), el("strong", "", s[1])); sg.append(d); });
+  body.append(sg);
+  if (o.hist) { body.append(section("Price chart", "Closing price over the loaded history. The yellow dot marks the peak.")); body.append(histPanel(o.hist)); }
+
+  if (o.F.length) {
+    body.append(section("What we found"));
+    const ul = el("ul");
+    o.F.forEach((f, i) => { const li = el("li", f[0]); li.style.setProperty("--i", i); li.append(el("b"), el("span", "", f[1])); if (f[2]) li.append(el("span", "pts", (f[2] > 0 ? "+" : "") + f[2])); ul.append(li); });
+    body.append(ul);
+  }
+}
+function renderHolders(body, list, note) {
+  if (!list.length) return;
+  body.append(section("Top holders", note));
+  const wrap = el("div");
+  list.forEach(h => {
+    const r = el("div", "hold"); const bar = el("div", "hbar"), fill = el("i"); bar.append(fill);
+    r.append(el("span", "", h.label), bar, el("span", "", (h.pct || 0).toFixed(1) + "%"));
+    wrap.append(r); requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = Math.min(h.pct || 0, 100) + "%"; }));
+  });
+  body.append(wrap);
+}
+function renderFooter(body, project, verify, diag) {
+  body.append(section("Project links", project.length ? "Listed by the token's creator. Check how old the X account is, who follows it and whether the site says anything real." : "No website or social links are listed for this token. That is information too."));
+  const pc = el("div", "chips"); project.forEach(p => pc.append(chipLink(p[0], p[1]))); body.append(pc);
+  body.append(section("Check it yourself", "Independent places to verify what this scan found."));
+  const vc = el("div", "chips"); verify.filter(l => l[1]).forEach(l => vc.append(chipLink(l[0], l[1]))); body.append(vc);
+  const dbg = el("button", "mini", "Copy diagnostics");
+  dbg.onclick = () => { const t = [...$("status").children].map(c => (c.className.includes("ok") ? "OK   " : "FAIL ") + c.textContent).join("\n") + "\n" + diag + ", page: " + location.protocol; navigator.clipboard.writeText(t).then(() => { dbg.textContent = "Copied"; }, () => { dbg.textContent = t; }); };
+  body.append(dbg);
+  if (proxied) body.append(el("p", "note", "Your browser blocked direct access to some data sources, so those requests went through a public relay."));
+  body.append(el("p", "note", "A higher score means fewer red flags were found, not that a token is safe. Wallets can be split, sites and social accounts can be faked and hype can be bought. Never invest more than you can lose."));
+}
+
+/* ---- Solana: RugCheck, Solana RPC and pump.fun creator history ---- */
+async function scanSolana(mint, dx0) {
+  const body = $("body");
+  const [rcRaw, dx, gt] = await Promise.all([
+    track("RugCheck", async () => { try { return await tj(RC + "/tokens/" + mint + "/report"); } catch (e) { const s = await tj(RC + "/tokens/" + mint + "/report/summary"); s._summary = true; return s; } }),
+    dx0 || track("DexScreener", () => tj(DX + mint)),
+    track("GeckoTerminal", () => tj(GT + "solana/tokens/" + mint + "/info"))
+  ]);
+  let rc = rcRaw;
+  const pair = bestPair(dx, "solana", mint);
+  if (!rc) rc = await track("On-chain read (RPC)", () => onchain(mint));
+  const g = (gt && gt.data && gt.data.attributes) || {};
+  const uri = rc && rc.tokenMeta && safe(rc.tokenMeta.uri);
+  const creator = rc && rc.creator;
+  const [meta, cw, hist, coins] = await Promise.all([
+    uri ? track("Token metadata", () => tj(uri, {}, 7000)) : null,
+    creator ? track("Creator wallet", () => creatorInfo(creator)) : null,
+    pair && pair.pairAddress ? track("Price history", async () => analyze(await ohlcv(pair), pair)) : null,
+    creator ? track("Creator coins", () => creatorCoins(creator, rc)) : null
+  ]);
+  const others = (coins || []).filter(c => c.mint !== mint);
+  const { project, xLink } = collectLinks(pair, g, meta);
+  const info = (pair && pair.info) || {};
+
+  /* ---- scoring ---- */
+  const F = []; const add = (t, m, p) => F.push([t, m, p || 0]);
+  let score = 70, cap = 100;
+  if (rc) {
+    if (rc.rugged) { cap = 5; add("bad", "RugCheck flags this token as rugged."); }
+    if (rc.mintAuthority) { cap = Math.min(cap, 25); add("bad", "Mint authority is still active: the creator can print unlimited new supply."); } else add("ok", "Mint authority is revoked.");
+    if (rc.freezeAuthority) { cap = Math.min(cap, 25); add("bad", "Freeze authority is still active: wallets can be frozen."); } else add("ok", "Freeze authority is revoked.");
+    let pen = 0;
+    (rc.risks || []).forEach(k => { const p = k.level === "danger" ? -20 : k.level === "warn" ? -8 : 0; if (!p) return; pen += p; add(k.level === "danger" ? "bad" : "warn", k.name + (k.description ? ": " + k.description : ""), p); });
+    score += Math.max(pen, -60);
+    const born = rc.createdAt ? rc.createdAt * 1000 : pair && pair.pairCreatedAt;
+    if (born && Date.now() - born < 864e5) add("info", "This token is only " + dur((Date.now() - born) / 1000) + " old. Most rugs happen in the first hours, so check the holders and the creator closely.");
+    if (rc._onchain) add("info", "RugCheck has no report for this token yet, so this score comes from direct on-chain reads.");
+    if (rc.tokenMeta && rc.tokenMeta.mutable) add("info", "Token metadata is mutable: the creator can still change the name and image.");
+  }
+  if (cw) {
+    const d = cw.ageDays.toFixed(0), c = cw.count + (cw.capped ? "+" : "");
+    if (cw.count < 5) { score -= 15; add("bad", "Creator wallet has almost no history (" + c + " transactions). Nothing to judge it by.", -15); }
+    else if (cw.ageDays < 14 && cw.count < 40) { score -= 8; add("warn", "Creator wallet is " + d + " days old with only " + c + " transactions.", -8); }
+    else if (cw.ageDays < 14) { score -= 2; add("info", "Creator wallet is new (" + d + " days) but active (" + c + " transactions).", -2); }
+    else if (cw.ageDays >= 60 || cw.count >= 100) { score += 5; add("ok", "Creator wallet has an established history (" + c + " transactions).", 5); }
+  }
+  const ct = rc && Array.isArray(rc.creatorTokens) ? rc.creatorTokens.length : null;
+  const low = others.filter(c => !c.done && c.mc != null && c.mc < 5000).length;
+  if (others.length >= 5 && low / others.length >= 0.8) { score -= 10; add("warn", "Creator has launched " + others.length + " other coins and " + low + " are below $5k. Most past launches died.", -10); }
+  else if (!coins && ct > 5) { score -= 8; add("warn", "Creator has launched " + ct + " other tokens. Serial launchers often abandon projects.", -8); }
+  score += marketChecks(pair, hist, project, add, "No DEX market data yet. The token may still be on the pump.fun bonding curve.");
+
+  score = Math.max(0, Math.min(Math.round(score), cap));
+  const tm = (rc && rc.tokenMeta) || {}, fm = (rc && rc.fileMeta) || {};
+  const lpl = Math.max(0, ...((rc && rc.markets) || []).map(m => (m.lp && m.lp.lpLockedPct) || 0));
+  renderTop(body, {
+    name: tm.name || fm.name || g.name || (pair && pair.baseToken && pair.baseToken.name) || "Unknown token",
+    sym: tm.symbol || g.symbol || (pair && pair.baseToken && pair.baseToken.symbol) || "",
+    img: safe(fm.image || g.image_url || info.imageUrl || ""), price: (rc && rc.price) || (pair && +pair.priceUsd), chain: "Solana",
+    scored: !!rc, score, noScore: "No on-chain report", noScoreMeta: "RugCheck data is needed for a score. See the red chip above.",
+    stats: [
+      ["Holders", fmt(rc && rc.totalHolders || (g.holders && g.holders.count))],
+      ["Liquidity", "$" + fmt((rc && rc.totalMarketLiquidity) || (pair && pair.liquidity && pair.liquidity.usd))],
+      ["24h volume", "$" + fmt(pair && pair.volume && pair.volume.h24)],
+      ["LP locked", rc && rc.markets && rc.markets.length ? lpl.toFixed(0) + "%" : "n/a"],
+      ["Insider wallets", rc && !rc._onchain ? String(rc.graphInsidersDetected != null ? rc.graphInsidersDetected : 0) : "n/a"],
+      ["RugCheck score", rc && (rc.score_normalised != null || rc.score != null) ? String(rc.score_normalised != null ? rc.score_normalised : rc.score) + " (lower is better)" : "n/a"]
+    ], hist, F
+  });
+  renderHolders(body, (rc && rc.topHolders || []).slice(0, 8).map(h => {
+    const k = (rc.knownAccounts || {})[h.owner || h.address];
+    return { label: (k && k.name) || short(h.owner || h.address), pct: h.pct };
+  }), "The largest holder is often the bonding curve or liquidity pool.");
+
+  /* ---- creator profile ---- */
+  if (creator) {
+    body.append(section("Creator profile", "What free public data can show about the wallet that launched this token."));
+    const kv = el("dl", "kv"); const row = (k, val) => { kv.append(el("dt", "", k), el("dd", "", val)); };
+    row("Wallet", creator);
+    row("SOL balance", cw ? cw.sol.toFixed(2) + " SOL" : "unavailable (RPC unreachable)");
+    row("Wallet age", cw ? cw.ageDays.toFixed(0) + " days" + (cw.capped ? " or more" : "") : "unavailable");
+    row("Transactions", cw ? cw.count + (cw.capped ? "+" : "") : "unavailable");
+    row("Tokens launched", ct != null ? String(ct) : "not reported");
+    const dec = rc.token && rc.token.decimals, sup = rc.token && rc.token.supply;
+    if (rc.creatorBalance != null && dec != null && sup) row("Holds of supply", (rc.creatorBalance / sup * 100).toFixed(2) + "%");
+    row("X account", xLink ? xLink : "none listed");
+    body.append(kv);
+    const cc = el("div", "chips"); cc.style.marginTop = "12px";
+    cc.append(chipLink("Creator PNL on GMGN", "https://gmgn.ai/sol/address/" + creator), chipLink("Creator on Solscan", "https://solscan.io/account/" + creator), chipLink("Creator on pump.fun", "https://pump.fun/profile/" + creator));
+    if (xLink) cc.append(chipLink("Creator X profile (following)", xLink));
+    body.append(cc);
+    body.append(el("p", "n", "PNL and X following are not in free public APIs (X data needs a paid key), so those open on the original sites instead of showing numbers we would have to guess."));
+  }
+
+  /* ---- other coins by creator ---- */
+  if (creator) {
+    body.append(section("Other coins by this creator", "Past launches from the same wallet on pump.fun, Bonk, Raydium LaunchLab, Meteora (Believe, Jupiter Studio), Moonshot, Boop and other launchpads, with each coin's peak market cap and how long it lasted. The first 5 load automatically."));
+    if (!coins) body.append(el("p", "n", "Could not load the creator's launch history: pump.fun's API and the on-chain lookup both failed (see the red chips). Open the creator on GMGN or pump.fun above to check it."));
+    else if (!others.length) body.append(el("p", "n", "No other coins found for this creator."));
+    else {
+      const grad = others.filter(c => c.done).length;
+      body.append(el("p", "n", "Showing " + Math.min(others.length, 10) + " of " + others.length + " other coins. Graduated: " + grad + ". Below $5k: " + low + "."));
+      const rows = others.slice(0, 10).map(c => { const r = coinRow(c); body.append(r); return r; });
+      (async () => { for (const r of rows.slice(0, 5)) { await r.load(); await new Promise(z => setTimeout(z, 700)); } })();
+    }
+  } else {
+    body.append(section("Creator profile"));
+    body.append(el("p", "n", "The creator wallet could not be determined. RugCheck did not report one and the on-chain lookup found none. Tokens that were not launched through the pump.fun bonding curve (for example the official PUMP token) have no pump.fun creator history."));
+  }
+
+  renderFooter(body, project, [["Search this address on X", "https://x.com/search?q=" + encodeURIComponent(mint) + "&f=live"], ["pump.fun page", "https://pump.fun/coin/" + mint],
+    ["DexScreener chart", safe(pair && pair.url) || "https://dexscreener.com/solana/" + mint], ["RugCheck report", "https://rugcheck.xyz/tokens/" + mint], ["Token on Solscan", "https://solscan.io/token/" + mint]],
+    "chain: solana, rc: " + (rc ? (rc._onchain ? "onchain" : "rugcheck") : "none") + ", creator: " + (creator || "none") + ", coins: " + (coins ? coins.length : "failed"));
+}
+
+/* ---- every other chain: GoPlus contract security, DexScreener/GeckoTerminal market data, public RPC for the creator ---- */
+const DEAD = a => /^0x0{36}(0{4}|dead)$/i.test(a) || a === "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+const frac = v => v === "" || v == null || isNaN(+v) ? null : +v;
+const pc = v => (v * 100).toFixed(v < 0.1 ? 1 : 0) + "%";
+/* Contract checks from a GoPlus report. Returns the penalty, the score cap and the holder breakdown. */
+function contractChecks(r, add, addr) {
+  let cap = 100, pen = 0;
+  const on = k => String(r[k]) === "1";
+  const hard = (c, m) => { cap = Math.min(cap, c); add("bad", m); };
+  const flag = (lvl, m, p) => { pen += p; add(lvl, m, p); };
+  const owner = r.owner_address, renounced = !owner || DEAD(owner);
+  /* Owner-only powers are harmless once nobody owns the contract. */
+  const ownerFlag = (m, p) => renounced ? add("info", m + " Ownership is renounced, so nobody can use this.") : flag("warn", m, p);
+  if (on("is_honeypot")) hard(5, "Honeypot: the contract stops buyers from selling.");
+  if (on("cannot_sell_all")) hard(15, "Holders cannot sell their full balance.");
+  if (on("is_airdrop_scam")) hard(5, "Flagged as an airdrop scam token.");
+  if (on("fake_token")) hard(5, "Flagged as a fake copy of a well-known token.");
+  if (on("cannot_buy")) flag("warn", "This token cannot be bought right now.", -8);
+  [["Buy", frac(r.buy_tax)], ["Sell", frac(r.sell_tax)]].forEach(([k, t]) => {
+    if (t == null) return;
+    if (t >= 0.5) hard(10, k + " tax is " + pc(t) + ": most of every trade is taken by the contract.");
+    else if (t > 0.1) flag("warn", k + " tax is " + pc(t) + ".", -10);
+    else if (t > 0) add("info", k + " tax is " + pc(t) + ".");
+  });
+  if (r.is_open_source === "0") hard(30, "Contract source code is not verified, so nobody can check what it does.");
+  else if (r.is_open_source === "1") add("ok", "Contract source code is verified.");
+  if (on("is_mintable") && !renounced) hard(25, "The contract owner can mint new supply.");
+  else if (on("is_mintable")) add("info", "The contract has a mint function, but ownership is renounced.");
+  if (renounced) add("ok", "Contract ownership is renounced."); else add("info", "Contract has an active owner (" + short(owner) + "). Any owner-only powers below can still be used.");
+  if (on("hidden_owner")) flag("bad", "Contract has a hidden owner.", -20);
+  if (on("can_take_back_ownership")) flag("bad", "Ownership can be taken back after being renounced.", -20);
+  if (on("owner_change_balance")) flag("bad", "The owner can change wallet balances.", -20);
+  if (on("selfdestruct")) flag("bad", "Contract can self-destruct.", -20);
+  if (on("honeypot_with_same_creator")) flag("bad", "The same creator has deployed honeypots before.", -20);
+  if (on("is_proxy")) flag("warn", "Contract is upgradeable (proxy): its code can be swapped later.", -8);
+  if (on("transfer_pausable")) ownerFlag("The owner can pause trading.", -8);
+  if (on("is_blacklisted")) ownerFlag("Contract has a blacklist: wallets can be blocked from trading.", -8);
+  if (on("slippage_modifiable")) ownerFlag("The owner can change the taxes.", -8);
+  if (on("personal_slippage_modifiable")) ownerFlag("Taxes can be set per wallet.", -8);
+  if (on("trading_cooldown")) ownerFlag("Contract enforces a cooldown between trades.", -4);
+  if (on("external_call")) flag("warn", "Contract calls other contracts during transfers.", -4);
+  if (on("is_anti_whale")) add("info", "Contract limits how much one wallet can buy or hold.");
+  if (on("trust_list")) add("ok", "Token is on GoPlus's trusted list.");
+  if (r.is_in_dex === "0") add("info", "GoPlus found no DEX liquidity for this token.");
+
+  const lp = new Set((r.dex || []).map(d => String(d.pair).toLowerCase()));
+  const holders = (r.holders || []).map(h => {
+    const a = String(h.address), kind = lp.has(a.toLowerCase()) ? "Liquidity pool" : DEAD(a) ? "Burn address" : String(h.is_locked) === "1" ? "Locked" : null;
+    return { address: a, pct: (frac(h.percent) || 0) * 100, kind, tag: h.tag };
+  });
+  const real = holders.filter(h => !h.kind && !(String(h.is_contract) === "1" && h.tag));
+  const top1 = real.length ? Math.max(...real.map(h => h.pct)) : 0, top10 = real.slice(0, 10).reduce((a, h) => a + h.pct, 0);
+  if (top1 > 20) flag("bad", "Single holder owns " + top1.toFixed(1) + "% of supply (excluding pools, locks and burns).", -20);
+  else if (top1 > 10) flag("warn", "Largest holder owns " + top1.toFixed(1) + "% of supply (excluding pools, locks and burns).", -8);
+  if (top10 > 50) flag("warn", "Top wallets own " + top10.toFixed(1) + "% of supply (excluding pools, locks and burns).", -8);
+  const cp = frac(r.creator_percent);
+  if (cp != null && cp > 0.05) flag(cp > 0.2 ? "bad" : "warn", "Creator holds " + pc(cp) + " of supply.", cp > 0.2 ? -20 : -8);
+  const lph = r.lp_holders || [];
+  const lpLocked = lph.length ? lph.filter(h => String(h.is_locked) === "1" || DEAD(String(h.address)) || same(h.address, addr)).reduce((a, h) => a + (frac(h.percent) || 0), 0) : null;
+  if (lpLocked != null && lpLocked < 0.5 && r.is_in_dex !== "0") flag("warn", "Only " + pc(lpLocked) + " of the pool's LP tokens are locked or burned, so the rest of the liquidity can be pulled.", -8);
+  return { pen, cap, holders, lpLocked };
+}
+
+async function scanChain(addr, chain, dx0, gp0) {
+  const body = $("body"), C = chainOf(chain);
+  const [gp, dx, gt] = await Promise.all([
+    gp0 || (C.gp ? track("GoPlus security", () => goplus(C.gp, addr)) : null),
+    dx0 || track("DexScreener", () => tj(DX + addr)),
+    C.gt ? track("GeckoTerminal", () => tj(GT + C.gt + "/tokens/" + encodeURIComponent(addr) + "/info")) : null
+  ]);
+  const pair = bestPair(dx, chain, addr);
+  const g = (gt && gt.data && gt.data.attributes) || {};
+  const creator = gp && gp.creator_address;
+  const [cw, hist] = await Promise.all([
+    creator && C.rpc ? track("Creator wallet", () => evmWallet(C.rpc, creator)) : null,
+    pair && pair.pairAddress ? track("Price history", async () => analyze(await ohlcv(pair), pair)) : null
+  ]);
+  const { project, xLink } = collectLinks(pair, g, null);
+  const info = (pair && pair.info) || {};
+
+  /* ---- scoring ---- */
+  const F = []; const add = (t, m, p) => F.push([t, m, p || 0]);
+  let score = 70, cap = 100, cc = null;
+  if (gp) {
+    cc = contractChecks(gp, add, addr);
+    cap = cc.cap; score += Math.max(cc.pen, -60);
+    const born = pair && pair.pairCreatedAt;
+    if (born && Date.now() - born < 864e5) add("info", "This token's first pool is only " + dur((Date.now() - born) / 1000) + " old. Most rugs happen in the first hours, so check the holders and the creator closely.");
+  } else if (!C.gp) add("info", "Contract security checks are not available for " + C.name + ", so this scan shows market data only.");
+  if (cw) {
+    if (cw.count < 5) { score -= 15; add("bad", "Creator wallet has almost no history (" + cw.count + " transactions sent). Nothing to judge it by.", -15); }
+    else if (cw.count >= 100) { score += 5; add("ok", "Creator wallet has an established history (" + cw.count + " transactions sent).", 5); }
+  }
+  score += marketChecks(pair, hist, project, add, "No DEX market data yet. The token may not have a liquidity pool.");
+  score = Math.max(0, Math.min(Math.round(score), cap));
+
+  const tax = gp && (frac(gp.buy_tax) != null || frac(gp.sell_tax) != null) ? pc(frac(gp.buy_tax) || 0) + " / " + pc(frac(gp.sell_tax) || 0) : "n/a";
+  renderTop(body, {
+    name: (gp && gp.token_name) || g.name || (pair && pair.baseToken && pair.baseToken.name) || "Unknown token",
+    sym: (gp && gp.token_symbol) || g.symbol || (pair && pair.baseToken && pair.baseToken.symbol) || "",
+    img: safe(g.image_url || info.imageUrl || ""), price: pair && +pair.priceUsd, chain: C.name,
+    scored: !!gp, score, noScore: "No contract security report",
+    noScoreMeta: C.gp ? "GoPlus data is needed for a score. See the red chip above." : "Contract checks are not available for " + C.name + " yet. Market data is below.",
+    stats: [
+      ["Holders", fmt((gp && +gp.holder_count) || (g.holders && g.holders.count))],
+      ["Liquidity", "$" + fmt(pair && pair.liquidity && pair.liquidity.usd)],
+      ["24h volume", "$" + fmt(pair && pair.volume && pair.volume.h24)],
+      ["LP locked", cc && cc.lpLocked != null ? pc(cc.lpLocked) : "n/a"],
+      ["Buy / sell tax", tax],
+      ["Market cap", "$" + fmt(pair && (pair.marketCap || pair.fdv))]
+    ], hist, F
+  });
+  renderHolders(body, cc ? cc.holders.slice(0, 8).map(h => ({ label: h.kind || h.tag || short(h.address), pct: h.pct })) : [],
+    "The largest holders are often liquidity pools, lockers or burn addresses.");
+
+  /* ---- creator profile ---- */
+  body.append(section("Creator profile", "What free public data can show about the wallet that deployed this contract."));
+  if (creator) {
+    const kv = el("dl", "kv"); const row = (k, val) => { kv.append(el("dt", "", k), el("dd", "", val)); };
+    row("Wallet", creator);
+    if (C.rpc) {
+      row((C.sym || "Native") + " balance", cw ? cw.bal.toFixed(3) + " " + (C.sym || "") : "unavailable (RPC unreachable)");
+      row("Transactions sent", cw ? String(cw.count) : "unavailable");
+    }
+    const cp = frac(gp.creator_percent);
+    if (cp != null) row("Holds of supply", (cp * 100).toFixed(2) + "%");
+    row("Contract owner", !gp.owner_address || DEAD(gp.owner_address) ? "renounced" : gp.owner_address);
+    row("X account", xLink ? xLink : "none listed");
+    body.append(kv);
+    const ch = el("div", "chips"); ch.style.marginTop = "12px";
+    if (C.gm) ch.append(chipLink("Creator PNL on GMGN", "https://gmgn.ai/" + C.gm + "/address/" + creator));
+    if (C.acc) ch.append(chipLink("Creator on " + C.ex, C.acc + creator));
+    if (xLink) ch.append(chipLink("Creator X profile (following)", xLink));
+    body.append(ch);
+  } else body.append(el("p", "n", gp ? "GoPlus did not report the wallet that deployed this contract." : "The creator wallet is only available when a contract security report exists for the token."));
+
+  renderFooter(body, project, [["Search this address on X", "https://x.com/search?q=" + encodeURIComponent(addr) + "&f=live"],
+    ["DexScreener chart", safe(pair && pair.url) || "https://dexscreener.com/" + chain + "/" + addr],
+    C.gp ? ["GoPlus report", "https://gopluslabs.io/token-security/" + C.gp + "/" + addr] : [],
+    C.hp ? ["Honeypot.is check", "https://honeypot.is/" + C.hp + "?address=" + addr] : [],
+    C.gm ? ["Token on GMGN", "https://gmgn.ai/" + C.gm + "/token/" + addr] : [],
+    C.tok ? ["Token on " + C.ex, C.tok + addr] : []],
+    "chain: " + chain + ", goplus: " + (gp ? "yes" : "none") + ", creator: " + (creator || "none") + ", pair: " + (pair ? pair.dexId : "none"));
+}
+
+CHAINS.forEach(c => { const o = el("option", "", c.name); o.value = c.id; $("chain").append(o); });
+$("go").addEventListener("click", scan);
+$("mint").addEventListener("keydown", e => { if (e.key === "Enter") scan(); });
+</script>
+</body>
+</html>
